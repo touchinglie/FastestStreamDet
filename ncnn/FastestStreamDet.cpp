@@ -317,8 +317,8 @@ int main(int argc, char *argv[])
         cv::Mat frame;
         cap >> frame;
         cv::VideoWriter vwriter;
-        char outPath[] = "./output/";
-        char outFileFormat[] = "_result.mp4";
+        char outPath[500] = "./output/";
+        char outFileFormat[500] = "_result.mp4";
         char savePath[700];
         strcat(outPath, fileRealName);
         strcat(outPath, outFileFormat);
