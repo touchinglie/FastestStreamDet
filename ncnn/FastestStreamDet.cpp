@@ -9,7 +9,7 @@
 #include "benchmark.h"
 #include <opencv2/opencv.hpp>
 
-// 类别标签
+// label
 static const char *class_names[] = {
     "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
     "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
@@ -20,13 +20,12 @@ static const char *class_names[] = {
     "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone",
     "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear",
     "hair drier", "toothbrush"};
-// 类别数量
 int class_num = sizeof(class_names) / sizeof(class_names[0]);
 
-// 阈值
+// threshold
 float thresh = 0.65;
 
-// 加载模型
+// load model
 ncnn::Net net;
 
 void GetFileName(char *path, char *filename)
@@ -41,9 +40,9 @@ void GetFileName(char *path, char *filename)
 
 void Reverse(char *str)
 {
-    char *left = str;                    // left指向字符串数组的首元素
-    char *right = str + strlen(str) - 1; // right指向字符串的最后一个元素
-    while (left < right)                 // 进行首元素和尾元素的交换，直至left等于right为止，此时字符串完成1逆置
+    char *left = str;                    // left pointer get the first char
+    char *right = str + strlen(str) - 1; // right pointer get the last char
+    while (left < right)                 // Exchange the left char and the right char, which make the char list upside down.
     {
         char temp = *left;
         *left = *right;
@@ -106,7 +105,7 @@ bool scoreSort(TargetBox a, TargetBox b)
     return (a.score > b.score);
 }
 
-// NMS处理
+// NMS function
 int nmsHandle(std::vector<TargetBox> &src_boxes, std::vector<TargetBox> &dst_boxes)
 {
     std::vector<int> picked;
@@ -118,9 +117,9 @@ int nmsHandle(std::vector<TargetBox> &src_boxes, std::vector<TargetBox> &dst_box
         int keep = 1;
         for (int j = 0; j < picked.size(); j++)
         {
-            // 交集
+            // intersection
             float inter_area = IntersectionArea(src_boxes[i], src_boxes[picked[j]]);
-            // 并集
+            // union
             float union_area = src_boxes[i].area() + src_boxes[picked[j]].area() - inter_area;
             float IoU = inter_area / union_area;
 
@@ -150,7 +149,7 @@ cv::Mat MainRun(cv::Mat inputPic)
     cv::Mat img = inputPic;
     int img_width = img.cols;
     int img_height = img.rows;
-    // 模型输入宽高
+    // model input size
     int input_width = 352;
     int input_height = 352;
 
@@ -183,11 +182,11 @@ cv::Mat MainRun(cv::Mat inputPic)
     {
         for (int w = 0; w < output.h; w++)
         {
-            // 前景概率
+            // objectness score
             int obj_score_index = (0 * output.h * output.w) + (h * output.w) + w;
             float obj_score = output[obj_score_index];
 
-            // 解析类别
+            // judge class
             int category;
             float max_score = 0.0f;
             for (size_t i = 0; i < class_num; i++)
@@ -202,10 +201,10 @@ cv::Mat MainRun(cv::Mat inputPic)
             }
             float score = pow(max_score, 0.4) * pow(obj_score, 0.6);
 
-            // 阈值筛选
+            // threshold
             if (score > thresh)
             {
-                // 解析坐标
+                // get bounding box position
                 int x_offset_index = (1 * output.h * output.w) + (h * output.w) + w;
                 int y_offset_index = (2 * output.h * output.w) + (h * output.w) + w;
                 int box_width_index = (3 * output.h * output.w) + (h * output.w) + w;
@@ -232,11 +231,11 @@ cv::Mat MainRun(cv::Mat inputPic)
     std::vector<TargetBox> nms_boxes;
     if (empty_box.size() != target_boxes.size())
     {
-        // NMS处理
+        // NMS
         nmsHandle(target_boxes, nms_boxes);
     }
 
-    // 打印耗时
+    // print out detect delay to terminal
     double end = ncnn::get_current_time();
     double time = end - start;
     printf("Time:%7.2f ms\n", time);
@@ -263,21 +262,22 @@ int main(int argc, char *argv[])
     ::net.load_model("FastestDet.bin");
     printf("ncnn model load sucess...\n");
 
-    // 加载图片或视频
-    // 第一参数：输入种类
-    // 三种：video、pic、链接（rtsp、http）
+    // first opt: input source
+    // three kinds：video、pic、link（rtsp、http）
     char kind[7];
     strcpy(kind, argv[1]);
     const char videokind[] = "video";
     const char pickind[] = "pic";
     const char linkkind[] = "link";
+    const char camkind[] = "cam";
+    printf("kind:%s \n", kind);
 
     printf("first arg load sucess...\n");
-    // 第二参数：输入路径
+    // second opt: Input path
     char inputPath[600];
     strcpy(inputPath, argv[2]);
     printf("sec arg: %s \n", inputPath);
-    // 提取出文件名到fileRealName里（不带后缀，带后缀的是fileName）
+    // get filename without suffix past through fileRealName var
     char fileName[600];
     char fileRealName[600];
     GetFileName(inputPath, fileName);
@@ -286,6 +286,14 @@ int main(int argc, char *argv[])
     printf("fileRealName arg: %s \n", fileRealName);
 
     printf("sec arg load sucess...\n");
+
+    // third opt: show result or not
+    bool showResult;
+    showResult = false;
+    if (argc > 2)
+    {
+        showResult = argv[3];
+    }
 
     if (!strcmp(kind, pickind))
     {
@@ -304,7 +312,16 @@ int main(int argc, char *argv[])
 
         cv::VideoCapture cap;
         printf("Path:%s\n", argv[2]);
-        cap.open(argv[2]);
+        if (!strcmp(kind, camkind))
+        {
+            printf("Cam detected.\n");
+            cap.open(argv[2], cv::CAP_V4L2);
+        }
+        else
+        {
+            printf("Not Cam.\n");
+            cap.open(argv[2]);
+        }
         if (!cap.isOpened())
         {
             printf("Stream load failed.\n");
@@ -335,7 +352,7 @@ int main(int argc, char *argv[])
 
         while (true)
         {
-            // 等同于cap.read(frame);
+            // same as cap.read(frame);
             cap >> frame;
             if (frame.empty())
             {
@@ -343,7 +360,10 @@ int main(int argc, char *argv[])
                 continue;
             }
             cv::Mat resultImg = MainRun(frame);
-            cv::imshow("resultFrame", resultImg);
+            if (showResult)
+            {
+                cv::imshow("resultFrame", resultImg);
+            }
             vwriter << resultImg;
             cv::waitKey(1);
             if ((char)cv::waitKey(delay) == 'q')
